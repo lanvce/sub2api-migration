@@ -1,0 +1,42 @@
+services:
+  hk-migration-sidecar:
+    image: hk-migration-sidecar:local
+    build: .
+    container_name: hk-migration-sidecar
+    restart: unless-stopped
+    environment:
+      HKM_LISTEN_ADDR: ":8290"
+      HKM_PUBLIC_BASE_URL: "${HKM_PUBLIC_BASE_URL}"
+      HKM_SHARED_SECRET: "${HKM_SHARED_SECRET}"
+      HKM_DATABASE_URL: "${HKM_DATABASE_URL}"
+      HKM_DATA_DIR: /data
+      HKM_AUTH_TTL: "${HKM_AUTH_TTL:-10m}"
+      HKM_GRANT_TTL: "${HKM_GRANT_TTL:-2h}"
+      HKM_QUOTA_PER_UNIT: "${HKM_QUOTA_PER_UNIT:-500000}"
+    volumes:
+      - hk-migration-data:/data
+    ports:
+      # Host-local only: US sub2api calls http://127.0.0.1:8290/...
+      - "127.0.0.1:8290:8290"
+    networks:
+      # DB access (new-api-postgres)
+      - new-api-network
+      # Shared with hk-subscription-caddy for name-based reverse_proxy
+      - sub2api-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8290/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  hk-migration-data:
+
+networks:
+  new-api-network:
+    name: "${HKM_NEW_API_NETWORK:-new-api-network}"
+    external: true
+  sub2api-network:
+    name: "${HKM_SUB2API_NETWORK:-sub2api-network}"
+    external: true
